@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { Subject, Observable, filter, firstValueFrom } from "rxjs";
+import { Subject, Observable, filter, firstValueFrom, map } from "rxjs";
 import { ReconnectingWebSocket } from "./reconnecting-ws";
 
 export class WsClient {
@@ -25,9 +25,9 @@ export class WsClient {
     })
   }
 
-  public send(subject: string, data: any): void
-  public send(message: IMessage<any>): void
-  public send(message: IMessage<any> | string, data?: any): void {
+  public send<TResponse = any>(subject: string, data: any): TSendOutput<TResponse>
+  public send<TResponse = any>(message: IMessage<any>): TSendOutput<TResponse>
+  public send<TResponse = any>(message: IMessage<any> | string, data?: any): TSendOutput<TResponse> {
     if (typeof message === 'string') {
       message = { subject: message, data }
     }
@@ -35,22 +35,19 @@ export class WsClient {
       message.id = nanoid()
     }
     this.ws.send(JSON.stringify(message))
-  }
-
-  public async sendAndWait<TResponse = any>(subject: string, data?: any): Promise<TResponse>
-  public async sendAndWait<TResponse = any>(message: IMessage<any>): Promise<TResponse>
-  public async sendAndWait<TResponse = any>(message: IMessage<any> | string, data?: any): Promise<TResponse> {
-    if (typeof message === 'string') {
-      message = { subject: message, data, id: nanoid() }
+    const messageObj = message
+    return {
+      data: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error === null), map(e => e.data)),
+      error: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error !== null), map(e => e.error)) as Observable<string>,
     }
-    const messageId = message.id
-    const returnVal = firstValueFrom(this.eventStream.pipe(filter(e => e.id === messageId)))
-    this.send(message)
-    return (await returnVal).data
   }
 
   public on<T>(subject: string): Observable<IMessage<T>> {
     return this.eventStream.pipe(filter(e => e.subject === subject))
+  }
+
+  public onError<T>(subject: string): Observable<IMessage<string>> {
+    return this.eventStream.pipe(filter(e => e.subject === subject && e.error !== null))
   }
 
   public destroy() {
@@ -64,4 +61,9 @@ export interface IMessage<T> {
   subject?: string
   data: T
   error?: string | null
+}
+
+type TSendOutput<T> = {
+  data: Observable<T>;
+  error: Observable<string>;
 }
