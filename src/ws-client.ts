@@ -37,7 +37,7 @@ export class WsClient {
     this.ws.send(JSON.stringify(message))
     const messageObj = message
     return {
-      data: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error === null), map(e => e.data)),
+      response: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error === null), map(e => e.data)),
       error: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error !== null), map(e => e.error)) as Observable<string>,
     }
   }
@@ -64,6 +64,6 @@ export interface IMessage<T> {
 }
 
 type TSendOutput<T> = {
-  data: Observable<T>;
+  response: Observable<T>;
   error: Observable<string>;
 }
