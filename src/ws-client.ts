@@ -25,7 +25,7 @@ export class WsClient {
     })
   }
 
-  public send<TResponse = any>(subject: string, data: any): TSendOutput<TResponse>
+  public send<TResponse = any>(subject: string, data?: any): TSendOutput<TResponse>
   public send<TResponse = any>(message: IMessage<any>): TSendOutput<TResponse>
   public send<TResponse = any>(message: IMessage<any> | string, data?: any): TSendOutput<TResponse> {
     if (typeof message === 'string') {
