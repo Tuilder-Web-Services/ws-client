@@ -17,8 +17,10 @@ export class ReconnectingWebSocket {
 
   constructor(
     private url: string,
+    private onConnect: () => void = () => { },
     private reconnectInterval: number = 1000,
-    private maxReconnectInterval: number = 10000) {
+    private maxReconnectInterval: number = 10000
+  ) {
     this.connect();
     this.setupConnectionEvents();
   }
@@ -52,6 +54,7 @@ export class ReconnectingWebSocket {
         this.scheduleReconnect()
         break;
       case WebsocketEvents.open:
+        this.onConnect();
         this.reconnectInterval = 1000;
         this.connectionState.next(EConnectionState.connected);
         let m = this.connectionQueue.shift()
