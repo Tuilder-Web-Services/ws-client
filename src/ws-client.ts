@@ -114,6 +114,7 @@ export class WsClient {
         this.on<ISession>('Session').subscribe(session => {
           popupWindow.close()
           if (session.id) localStorage.setItem('sessionId', session.data.id)
+          this.auth.next(true)
         })
       } else {
         console.error('Failed to open the popup window.');
