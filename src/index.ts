@@ -1,4 +1,3 @@
-import { ReconnectingWebSocket } from "./reconnecting-ws";
-import { WsClient } from "./ws-client";
-
-export { ReconnectingWebSocket, WsClient }
+export * from "./reconnecting-ws";
+export * from "./ws-client";
+export * from "./typings/user.interface";

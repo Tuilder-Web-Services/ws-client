@@ -46,5 +46,8 @@
   "peerDependencies": {
     "nanoid": "^4.0.1",
     "rxjs": "^7.8.0"
+  },
+  "dependencies": {
+    "@tuilder/mysql-plus": "^1.7.5"
   }
 }

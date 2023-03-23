@@ -1,12 +1,15 @@
 import { nanoid } from "nanoid";
-import { Subject, Observable, filter, firstValueFrom, map, BehaviorSubject } from "rxjs";
+import { Subject, Observable, filter, firstValueFrom, map, BehaviorSubject, SubscriptionLike } from "rxjs";
 import { ReconnectingWebSocket } from "./reconnecting-ws";
-
+import { IDbPermissions, IDBReadOptions } from '@tuilder/mysql-plus'
+import { IUser } from "./typings/user.interface";
 export class WsClient {
 
   private ws: ReconnectingWebSocket;
 
   private eventStream = new Subject<IMessage<any>>();
+
+  private subs = new Set<SubscriptionLike>()
 
   readonly timeoutSeconds = 5;
 
@@ -52,6 +55,7 @@ export class WsClient {
 
   public destroy() {
     this.ws.destroy();
+    this.subs.forEach(s => s.unsubscribe())
   }
 
   private async getClientToken(): Promise<string> {
@@ -61,6 +65,7 @@ export class WsClient {
 
   public auth = new BehaviorSubject(false)
   public user = new BehaviorSubject<IUser | null>(null)
+  public roles = new BehaviorSubject<MyRoles | null>(null)
 
   public async setSession(): Promise<ISession | null> {
     if (!localStorage.getItem('sessionId')) return null
@@ -68,6 +73,12 @@ export class WsClient {
     const isAuth = res !== null
     if (isAuth !== this.auth.value) {
       this.auth.next(isAuth)
+      const options: IDBReadOptions = {
+        firstOnly: true,
+        id: res?.userId,
+      }
+      firstValueFrom(this.send<IUser>('Read', { table: 'user', options }).response).then(this.user.next)
+      firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(new MyRoles(roles)))
     }
     return res
   }
@@ -126,6 +137,19 @@ export class WsClient {
 
 }
 
+export class MyRoles {
+  private roleIds = new Set<string>()
+  constructor(private model: IUserRole[]) {
+    model.forEach(r => this.roleIds.add(r.roleId))
+  }
+  public get isOwner() {
+    return this.roleIds.has('owner')
+  }
+  public get isAdmin() {
+    return this.roleIds.has('admin') || this.isOwner
+  }
+}
+
 export interface IWsClientOptions {
   domain?: string
 }
@@ -148,11 +172,9 @@ export interface ISession {
   expiresDate: Date | null
 }
 
-
-export interface IUser {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
+export interface IUserRole {
+  userId: string,
+  roleId: string,
+  name: string,
+  permissions: IDbPermissions
 }
-
