@@ -23,8 +23,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "watch": "npm run build -- --watch src",
-    "prepack": "npm run build"
+    "pub": "npm run build && npm publish --access public",
+    "watch": "npm run build -- --watch src"
   },
   "repository": {
     "type": "git",
@@ -46,8 +46,5 @@
   "peerDependencies": {
     "nanoid": "^4.0.1",
     "rxjs": "^7.8.0"
-  },
-  "dependencies": {
-    "@tuilder/mysql-plus": "^1.7.5"
   }
 }

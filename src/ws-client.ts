@@ -1,7 +1,6 @@
 import { nanoid } from "nanoid";
 import { Subject, Observable, filter, firstValueFrom, map, BehaviorSubject, SubscriptionLike } from "rxjs";
 import { ReconnectingWebSocket } from "./reconnecting-ws";
-import { IDbPermissions, IDBReadOptions } from '@tuilder/mysql-plus'
 import { IUser } from "./typings/user.interface";
 export class WsClient {
 
@@ -73,11 +72,8 @@ export class WsClient {
     const isAuth = res !== null
     if (isAuth !== this.auth.value) {
       this.auth.next(isAuth)
-      const options: IDBReadOptions = {
-        firstOnly: true,
-        id: res?.userId,
-      }
-      firstValueFrom(this.send<IUser>('Read', { table: 'user', options }).response).then(this.user.next)
+      const options = {firstOnly: true, id: res?.userId}
+      firstValueFrom(this.send<IUser>('Read', { table: 'user', options}).response).then(this.user.next)
       firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(new MyRoles(roles)))
     }
     return res
@@ -177,4 +173,19 @@ export interface IUserRole {
   roleId: string,
   name: string,
   permissions: IDbPermissions
+}
+
+export interface IDbPermissions {
+  default?: Set<EDbOperations>,
+  tables?: Record<string, {
+    protectedFields?: Set<string>,
+    operations?: Set<EDbOperations>,
+  }>,
+  qualifiers?: Record<string, any>
+}
+
+export enum EDbOperations {
+  Read,
+  Write,
+  Delete
 }
