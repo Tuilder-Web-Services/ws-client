@@ -12,7 +12,11 @@ export class WsClient {
 
   readonly timeoutSeconds = 5;
 
+  public whenAuthReady: Promise<void>
+  private whenAuthReadyResolver: () => void
+
   constructor(private endpoint: string, private options: IWsClientOptions = {}) {
+    this.whenAuthReady = new Promise<void>(async (resolve) => this.whenAuthReadyResolver = resolve)
     this.ws = new ReconnectingWebSocket(endpoint, () => this.setSession())
     this.ws.messageStream.subscribe(message => {
       // check if data looks like json
@@ -67,15 +71,22 @@ export class WsClient {
   public roles = new BehaviorSubject<MyRoles | null>(null)
 
   public async setSession(): Promise<ISession | null> {
-    if (!localStorage.getItem('sessionId')) return null
+    if (!localStorage.getItem('sessionId')) {
+      this.whenAuthReadyResolver()
+      return null
+    }
     const res = await firstValueFrom(this.send<ISession | null>('SetSession', localStorage.getItem('sessionId')).response)
     const isAuth = res !== null
     if (isAuth !== this.auth.value) {
       this.auth.next(isAuth)
       const options = {firstOnly: true, id: res?.userId}
-      firstValueFrom(this.send<IUser>('Read', { table: 'user', options}).response).then(this.user.next)
-      firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(new MyRoles(roles)))
+      const promises = [
+        firstValueFrom(this.send<IUser>('Read', { table: 'user', options}).response).then(user => this.user.next(user)),
+        firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(new MyRoles(roles)))
+      ]
+      await Promise.all(promises)
     }
+    this.whenAuthReadyResolver()
     return res
   }
 
