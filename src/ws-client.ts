@@ -31,9 +31,9 @@ export class WsClient {
     })
   }
 
-  public send<TResponse = any>(subject: string, data?: any): TSendOutput<TResponse>
-  public send<TResponse = any>(message: IMessage<any>): TSendOutput<TResponse>
-  public send<TResponse = any>(message: IMessage<any> | string, data?: any): TSendOutput<TResponse> {
+  public send<TResponse = any>(subject: string, data?: any): TSendOutput<TResponse | null>
+  public send<TResponse = any>(message: IMessage<any>): TSendOutput<TResponse | null>
+  public send<TResponse = any>(message: IMessage<any> | string, data?: any): TSendOutput<TResponse | null> {
     if (typeof message === 'string') {
       message = { subject: message, data }
     }
@@ -43,8 +43,8 @@ export class WsClient {
     this.ws.send(JSON.stringify(message))
     const messageObj = message
     return {
-      response: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error === null), map(e => e.data)),
-      error: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error !== null), map(e => e.error)) as Observable<string>,
+      response: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error === null), map(e => e.data ?? null)),
+      error: this.eventStream.pipe(filter(e => e.id === messageObj.id && e.error !== null), map(e => e.error ?? null)) as Observable<string>,
     }
   }
 
@@ -62,8 +62,8 @@ export class WsClient {
   }
 
   private async getClientToken(): Promise<string> {
-    const { token } = await firstValueFrom(this.send<{ token: string }>('GetClientToken', null).response)
-    return token
+    const { token } = (await firstValueFrom(this.send<{ token: string }>('GetClientToken', null).response)) ?? {}
+    return token ?? ''
   }
 
   public auth = new BehaviorSubject(false)
@@ -81,8 +81,8 @@ export class WsClient {
       this.auth.next(isAuth)
       const options = {firstOnly: true, id: res?.userId}
       const promises = [
-        firstValueFrom(this.send<IUser>('Read', { table: 'user', options}).response).then(user => this.user.next(user)),
-        firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(new MyRoles(roles)))
+        firstValueFrom(this.send<IUser>('Read', { table: 'user', options}).response).then(user => this.user.next(user ?? null)),
+        firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response).then(roles => this.roles.next(roles ? new MyRoles(roles) : null))
       ]
       await Promise.all(promises)
     }
@@ -146,7 +146,7 @@ export class WsClient {
 
 export class MyRoles {
   private roleIds = new Set<string>()
-  constructor(private model: IUserRole[]) {
+  constructor(model: IUserRole[]) {
     model.forEach(r => this.roleIds.add(r.roleId))
   }
   public get isOwner() {
