@@ -96,6 +96,8 @@ export class WsClient {
   public logout() {
     localStorage.removeItem('sessionId')
     this.auth.next(false)
+    this.roles.next(null)
+    this.user.next(null)
     this.send('Logout')
   }
 
