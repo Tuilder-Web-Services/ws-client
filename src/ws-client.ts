@@ -101,9 +101,9 @@ export class WsClient {
     this.send('Logout')
   }
 
-  public login() {
+  public login(initialRoute?: string) {
 
-    const loginEndpoint = `https://auth.tda.website/${this.options.domain ?? window.location.hostname}`
+    const loginEndpoint = `https://auth.tda.website/${this.options.domain ?? window.location.hostname}${initialRoute ? `/${initialRoute}` : ''}`
     const backendDomain = this.endpoint.replace('wss://', '').replace('/ws', '').split('/')[0]
 
     return new Promise<void>(async (resolve) => {
