@@ -82,7 +82,7 @@ export class WsClient {
       if (res) {
         const promises = [
           firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response),
-          firstValueFrom(this.send<IUser>('Read', { table: 'user', firstOnly: true, id: res.userId }).response)
+          firstValueFrom(this.send<IUser>('ReadUser').response)
         ] as const
         const [roles, user] = await Promise.all(promises)
         this.roles.next(roles ? new MyRoles(roles) : null)
