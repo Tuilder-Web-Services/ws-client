@@ -29,6 +29,15 @@ export class WsClient {
       }
       console.error('Error parsing json in ws incoming', message)
     })
+    this.auth.pipe(filter(a => a)).subscribe(async () => {
+      const promises = [
+        firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response),
+        firstValueFrom(this.send<IUser>('ReadUser').response)
+      ] as const
+      const [roles, user] = await Promise.all(promises)
+      this.roles.next(roles ? new MyRoles(roles) : null)
+      this.user.next(user ?? null)
+    })
   }
 
   public send<TResponse = any>(subject: string, data?: any): TSendOutput<TResponse | null>
@@ -79,15 +88,6 @@ export class WsClient {
     const isAuth = res !== null && res !== false
     if (isAuth !== this.auth.value) {
       this.auth.next(isAuth)
-      if (res) {
-        const promises = [
-          firstValueFrom(this.send<IUserRole[]>('GetMyRoles').response),
-          firstValueFrom(this.send<IUser>('ReadUser').response)
-        ] as const
-        const [roles, user] = await Promise.all(promises)
-        this.roles.next(roles ? new MyRoles(roles) : null)
-        this.user.next(user ?? null)
-      }
     }
     this.whenAuthReadyResolver()
     return res || null
