@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid"
-import { Subject, Observable, filter, firstValueFrom, map, BehaviorSubject, SubscriptionLike } from "rxjs"
+import { Subject, Observable, filter, firstValueFrom, map, BehaviorSubject, SubscriptionLike, timeout } from "rxjs"
 import { ReconnectingWebSocket } from "./reconnecting-ws"
 import { IUser } from "./typings/user.interface"
 export class WsClient {
@@ -80,17 +80,27 @@ export class WsClient {
   public roles = new BehaviorSubject<MyRoles | null>(null)
 
   public async setSession(): Promise<ISession | null> {
-    if (!localStorage.getItem('sessionId')) {
+    const url = new URL(location.href)
+    if (url.searchParams.get('singleUseToken')) {
+      const session = await firstValueFrom(this.send<ISession | null>('UseSingleUseToken', url.searchParams.get('singleUseToken')).response.pipe(timeout(5000)))
+      if (session) {
+        localStorage.setItem('sessionId', session.id)
+        return session
+      }
+    } else {
+      if (!localStorage.getItem('sessionId')) {
+        this.whenAuthReadyResolver()
+        return null
+      }
+      const res = await firstValueFrom(this.send<ISession | null | false>('SetSession', localStorage.getItem('sessionId')).response)
+      const isAuth = res !== null && res !== false
+      if (isAuth !== this.auth.value) {
+        this.auth.next(isAuth)
+      }
       this.whenAuthReadyResolver()
-      return null
+      return res || null
     }
-    const res = await firstValueFrom(this.send<ISession | null | false>('SetSession', localStorage.getItem('sessionId')).response)
-    const isAuth = res !== null && res !== false
-    if (isAuth !== this.auth.value) {
-      this.auth.next(isAuth)
-    }
-    this.whenAuthReadyResolver()
-    return res || null
+    return  null
   }
 
   public logout() {
@@ -101,50 +111,11 @@ export class WsClient {
     this.send('Logout')
   }
 
-  public login(initialRoute?: string) {
-
+  public async login(initialRoute?: string) {
     const loginEndpoint = `https://auth.tda.website/${this.options.domain ?? window.location.hostname}${initialRoute ? `/${initialRoute}` : ''}`
     const backendDomain = this.endpoint.replace('wss://', '').replace('/ws', '').split('/')[0]
-
-    return new Promise<void>(async (resolve) => {
-      const token = await this.getClientToken()
-
-      const w = 450
-      const h = 650
-
-      const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX
-      const dualScreenTop  = window.screenTop  !== undefined ? window.screenTop : window.screenY
-
-      const width  = window.innerWidth  ? window.innerWidth  : document.documentElement.clientWidth  ? document.documentElement.clientWidth  : screen.width
-      const height = window.innerHeight ? window.innerHeight : document.documentElement.clientHeight ? document.documentElement.clientHeight : screen.height
-
-      const systemZoom = width / window.screen.availWidth
-
-      const left = (width - w) / 2 / systemZoom + dualScreenLeft
-      const top  = (height - h) / 2 / systemZoom + dualScreenTop
-
-      const features = `scrollbars=yes,width=${w / systemZoom},height=${h / systemZoom},top=${top},left=${left}`
-
-      const popupWindow = window.open(`${loginEndpoint}?token=${token}&domain=${backendDomain}`, 'Login', features)
-      if (popupWindow) {
-        popupWindow.focus()
-        const interval = setInterval(() => {
-          if (popupWindow.closed) {
-            clearInterval(interval)
-            resolve()
-          }
-        }, 500)
-        this.on<ISession>('Session').subscribe(session => {
-          popupWindow.close()
-          if (session.id) localStorage.setItem('sessionId', session.data.id)
-          this.auth.next(true)
-        })
-      } else {
-        console.error('Failed to open the popup window.')
-        resolve()
-      }
-    })
-
+    const token = await this.getClientToken()
+    window.location.href = `${loginEndpoint}?token=${token}&domain=${backendDomain}&return=${window.location.href}`, 'Login'
   }
 
 }
