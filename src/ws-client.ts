@@ -85,6 +85,8 @@ export class WsClient {
       const session = await firstValueFrom(this.send<ISession | null>('UseSingleUseToken', url.searchParams.get('singleUseToken')).response.pipe(timeout(5000)))
       if (session) {
         localStorage.setItem('sessionId', session.id)
+        this.auth.next(true)
+        this.whenAuthReadyResolver()
         return session
       }
     } else {
